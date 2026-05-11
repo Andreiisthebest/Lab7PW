@@ -9,6 +9,7 @@ import Dashboard from './components/Dashboard'
 import Leaderboard from './components/Leaderboard'
 import DataGrid from './components/DataGrid'
 import NewTargetModal from './components/NewTargetModal'
+import Login from './components/Login'
 
 import './index.css'
 
@@ -21,7 +22,7 @@ function App() {
     updateDestination,
     theme, 
     toggleTheme,
-    authenticate,
+    token,
     fetchDestinations
   } = useStore()
 
@@ -30,14 +31,12 @@ function App() {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 
-  // Load data from Backend on mount
+  // Load data from Backend on mount OR when token changes
   useEffect(() => {
-    const initData = async () => {
-      await authenticate();
-      await fetchDestinations();
-    };
-    initData();
-  }, []);
+    if (token) {
+      fetchDestinations();
+    }
+  }, [token]);
 
   // UI State
   const [filter, setFilter] = useState('All')
@@ -80,6 +79,11 @@ function App() {
       .sort((a, b) => b.score - a.score)
       .slice(0, 5);
   }, [destinations])
+
+  // If no token exists, lock the user at the Login screen
+  if (!token) {
+    return <Login />
+  }
 
   return (
     <div className="premium-layout">

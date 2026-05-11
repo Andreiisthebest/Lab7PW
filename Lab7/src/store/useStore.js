@@ -9,22 +9,36 @@ const useStore = create(
       destinations: [],
       theme: 'dark', // default theme
       token: null,
+      role: 'ADMIN', // default demo role
       
       // Theme actions
       toggleTheme: () => set((state) => ({ theme: state.theme === 'dark' ? 'light' : 'dark' })),
       
       // Auth
-      authenticate: async () => {
+      authenticate: async (customRole = null) => {
         try {
-          // Getting an ADMIN token to allow all operations for demo purposes
-          const res = await fetch(`${API_BASE}/token?role=ADMIN&permissions=READ,WRITE,DELETE`);
+          const activeRole = customRole || get().role;
+          let permissions = 'READ';
+          if (activeRole === 'ADMIN') permissions = 'READ,WRITE,DELETE';
+          if (activeRole === 'WRITER') permissions = 'READ,WRITE';
+
+          const res = await fetch(`${API_BASE}/token?role=${activeRole}&permissions=${permissions}`);
           const data = await res.json();
           if (data.token) {
-            set({ token: data.token });
+            set({ token: data.token, role: activeRole });
           }
         } catch (error) {
           console.error("Failed to authenticate", error);
         }
+      },
+
+      setRole: async (newRole) => {
+        await get().authenticate(newRole);
+        await get().fetchDestinations();
+      },
+
+      logout: () => {
+        set({ token: null, role: null, destinations: [] });
       },
 
       // Destination actions
@@ -60,6 +74,10 @@ const useStore = create(
             },
             body: JSON.stringify(destination)
           });
+          if (res.status === 403) {
+            alert("Forbidden: You don't have WRITE permissions to add a destination.");
+            return;
+          }
           const newDest = await res.json();
           if (res.ok) {
             set((state) => ({ destinations: [newDest, ...state.destinations] }));
@@ -77,6 +95,10 @@ const useStore = create(
             method: 'DELETE',
             headers: { Authorization: `Bearer ${token}` }
           });
+          if (res.status === 403) {
+            alert("Forbidden: You don't have DELETE permissions.");
+            return;
+          }
           if (res.ok) {
             set((state) => ({
               destinations: state.destinations.filter(d => d.id !== id)
@@ -98,6 +120,10 @@ const useStore = create(
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
             body: JSON.stringify({ ...dest, status })
           });
+          if (res.status === 403) {
+             alert("Forbidden: You don't have WRITE permissions to update status.");
+             return;
+          }
           if (res.ok) {
             set((state) => ({
               destinations: state.destinations.map(d => d.id === id ? { ...d, status } : d)
@@ -119,6 +145,10 @@ const useStore = create(
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
             body: JSON.stringify({ ...dest, ...updates })
           });
+          if (res.status === 403) {
+             alert("Forbidden: You don't have WRITE permissions to edit.");
+             return;
+          }
           if (res.ok) {
             set((state) => ({
               destinations: state.destinations.map(d => d.id === id ? { ...d, ...updates } : d)
@@ -141,6 +171,10 @@ const useStore = create(
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
             body: JSON.stringify({ ...dest, liked: updatedLiked })
           });
+          if (res.status === 403) {
+             alert("Forbidden: You don't have WRITE permissions to like this.");
+             return;
+          }
           if (res.ok) {
             set((state) => ({
               destinations: state.destinations.map(d => d.id === id ? { ...d, liked: updatedLiked } : d)
@@ -153,7 +187,7 @@ const useStore = create(
     }),
     {
       name: 'destinations-storage',
-      partialize: (state) => ({ theme: state.theme, token: state.token }), // don't persist destinations array locally anymore
+      partialize: (state) => ({ theme: state.theme, token: state.token, role: state.role }), // persist identity across refreshes
     }
   )
 );
