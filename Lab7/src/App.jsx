@@ -20,13 +20,24 @@ function App() {
     updateStatus,
     updateDestination,
     theme, 
-    toggleTheme 
+    toggleTheme,
+    authenticate,
+    fetchDestinations
   } = useStore()
 
   // Apply theme to body
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
+
+  // Load data from Backend on mount
+  useEffect(() => {
+    const initData = async () => {
+      await authenticate();
+      await fetchDestinations();
+    };
+    initData();
+  }, []);
 
   // UI State
   const [filter, setFilter] = useState('All')
